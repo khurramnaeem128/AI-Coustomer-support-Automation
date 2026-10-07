@@ -30,15 +30,23 @@ N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL")
 N8N_API_KEY = os.getenv("N8N_API_KEY")
 
 
-@app.post("/customer-inquiry")
+# Routes are prefixed with /api so Vercel routes them to the Python
+# function automatically (no vercel.json rewrites needed).
+@app.post("/api/customer-inquiry")
 def customer_inquiry(data: CustomerInquiry) -> CustomerInquiryResponse:
+
+    if not N8N_WEBHOOK_URL:
+        raise HTTPException(
+            status_code=500,
+            detail="Server is not configured: N8N_WEBHOOK_URL is missing."
+        )
 
     try:
         response = requests.post(
             N8N_WEBHOOK_URL,
             headers={
                 "Content-Type": "application/json",
-                "x-api-key": N8N_API_KEY
+                "x-api-key": N8N_API_KEY or ""
             },
             json=data.model_dump(),
             timeout=30
