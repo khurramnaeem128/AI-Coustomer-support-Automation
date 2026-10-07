@@ -1,0 +1,683 @@
+{
+  "name": "AI Customer Support & Lead Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-inquiry",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -704,
+        144
+      ],
+      "id": "eeda19f7-259c-40b6-858b-a7e95f75b4ad",
+      "name": "Webhook",
+      "webhookId": "265d36af-813c-469c-871f-40ce9f0156ea"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        -752
+      ],
+      "id": "9829ea67-83a9-4931-a771-b278c7bb9b6a",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Answer this customer message directly:\n\n{{ $json.body.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "In addition to the customer response, classify every inquiry.\n\nReturn:\n- category: service_inquiry, pricing_inquiry, technical_support, general_inquiry, or human_escalation\n- priority: low, medium, or high\n- needs_human: true or false\n- response: the actual helpful response for the customer\n\nSet needs_human to true when the customer explicitly asks for a human representative, manager, or human support, or when the issue requires human assistance.\n\nDo not invent company information or pricing."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        144,
+        -144
+      ],
+      "id": "fc785c9d-bd5b-43e0-bae7-35d375136009",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n  {\n    success: true,\n    response: $('AI Agent').item.json.output.response\n  }\n}}",
+        "options": {
+          "responseCode": "={{ 200 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        752,
+        -176
+      ],
+      "id": "45d1e881-9447-4253-9c3c-2db1d293a02a",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"category\": \"technical_support\",\n  \"priority\": \"high\",\n  \"needs_human\": true,\n  \"response\": \"I'm sorry you're experiencing this issue. Please provide more details so we can help you.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        96
+      ],
+      "id": "336cc0cd-79c9-4098-82ae-f99650070124",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "355b4ab8-3423-4607-b9d7-1af5063870ed",
+              "leftValue": "={{ $('AI Agent').item.json.output.needs_human }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        16
+      ],
+      "id": "77ef5a2f-09ab-42ee-badc-d39161242594",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "contact.khurram1@gmail.com",
+        "toEmail": "contact.khurram1@gmail.com",
+        "subject": "Human Support Required",
+        "html": "=<h2>🚨 Human Support Required</h2>\n\n<p><strong>Customer Name:</strong> {{ $('Webhook').item.json.body.name }}</p>\n\n<p><strong>Customer Email:</strong> {{ $('Webhook').item.json.body.email }}</p>\n\n<p><strong>Category:</strong> {{ $('AI Agent').item.json.output.category }}</p>\n\n<p><strong>Priority:</strong> {{ $('AI Agent').item.json.output.priority }}</p>\n\n<hr>\n\n<h3>Customer Message</h3>\n\n<p>{{ $('Webhook').item.json.body.message }}</p>\n\n<h3>AI Response</h3>\n\n<p>{{ $('AI Agent').item.json.output.response }}</p>\n\n<hr>\n\n<p><strong>Action Required:</strong> Please review this inquiry and contact the customer.</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        976,
+        0
+      ],
+      "id": "e2e6f4bb-7e39-4b8e-94dc-fc76ea1d78c4",
+      "name": "Send an Email",
+      "webhookId": "a691d66c-919e-4877-b1c8-5959eb07ee44",
+      "retryOnFail": true,
+      "credentials": {
+        "smtp": {
+          "id": "DWgV9RQsOnjcfrl6",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1V9QhFBT8FEqBBvVnSRjF-IH0K7P-IR2Nz-O-MLKjUEQ",
+          "mode": "list",
+          "cachedResultName": "Customer Inquiry Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9QhFBT8FEqBBvVnSRjF-IH0K7P-IR2Nz-O-MLKjUEQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9QhFBT8FEqBBvVnSRjF-IH0K7P-IR2Nz-O-MLKjUEQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name ": "={{ $('Webhook').item.json.body.name }}",
+            "Email ": "={{ $('Webhook').item.json.body.email }}",
+            "Message": "={{ $('Webhook').item.json.body.message }}",
+            "Category": "={{ $json.output.category }}",
+            "Priority": "={{ $json.output.priority }}",
+            "Need Humans ": "={{ $json.output.needs_human }}",
+            "AI Response": "={{ $json.output.response }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name ",
+              "displayName": "Name ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Need Humans ",
+              "displayName": "Need Humans ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Response",
+              "displayName": "AI Response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        496,
+        -112
+      ],
+      "id": "90f4eeff-ea49-49d8-90d2-d3ef7642df21",
+      "name": "Append row in sheet",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "M4Ft7BqwElHlqYqU",
+          "name": "Google Sheets account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -512
+      ],
+      "id": "588e7306-e7a9-4694-929c-8e31d303f3ae",
+      "name": "Mistral Cloud Chat Model"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        80,
+        64
+      ],
+      "id": "fb1ac8a5-0785-4998-a9a8-f8ae6efbf937",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "vdLRc97ZQwxbCLPU",
+          "name": "OpenRouter account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"error\": \"Unauthorized\",\n  \"message\": \"Invalid or missing API key\"\n}",
+        "options": {
+          "responseCode": "={{ 401 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -720,
+        -224
+      ],
+      "id": "a1cb12bf-a23c-40b2-afca-f549a4773d7c",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n  {\n    success: false,\n    error: \"Validation Error\",\n    message: \"Name, email, and customer message are required.\"\n  }\n}}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -384,
+        128
+      ],
+      "id": "3c48ddfa-04d0-4b0a-8d03-298e28d3b589",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    success: false,\n    error: \"Invalid Email\",\n    message: \"Please provide a valid email address.\"\n  }\n}}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -224,
+        16
+      ],
+      "id": "cff65ad5-d43a-4801-8532-5863b8660af5",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1d4d2607-5c22-4a6f-9a24-b83b0a7031d1",
+              "leftValue": "={{ $json.headers[\"x-api-key\"] }}",
+              "rightValue": "YOUR_N8N_API_KEY",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -640,
+        -64
+      ],
+      "id": "66f70b98-c683-4d32-9879-826e3cf9bccf",
+      "name": "If1 API Key Validation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f3bd4f26-c1cc-4d6e-a3c0-d27f2a6408e5",
+              "leftValue": "={{ $json.body.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "bad22575-5f94-4915-b0ab-1d325eb89f21",
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "985e6c1c-5cbe-4788-b256-2bfc77bfeda5",
+              "leftValue": "={{ $json.body.message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        -160
+      ],
+      "id": "e3e460c9-008e-40f8-af23-6e095b104fa8",
+      "name": "if2 Required Fields Validation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3c23c55a-2d0f-43e6-87b7-1f372e2e05fa",
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -208,
+        -176
+      ],
+      "id": "09a6db6a-91c6-4b64-8ed8-30c9b161525c",
+      "name": "if3 Email Format Validation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "08f98584-9e51-46ca-9d1a-9336be678149",
+              "leftValue": "={{ $json.body.message.trim().length }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -64,
+        -256
+      ],
+      "id": "49ef7da9-287f-4360-a3f8-3b2fdc6bbc97",
+      "name": "if4 Message Quality Validation"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    success: false,\n    error: \"Invalid Message\",\n    message: \"Please provide a valid customer message.\"\n  }\n}}",
+        "options": {
+          "responseCode": "={{ 400 }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        416,
+        -272
+      ],
+      "id": "fd4758cd-b56e-4f32-b510-6b2be6de48a4",
+      "name": "Respond to Webhook4 Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If1 API Key Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1 API Key Validation": {
+      "main": [
+        [
+          {
+            "node": "if2 Required Fields Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if2 Required Fields Validation": {
+      "main": [
+        [
+          {
+            "node": "if3 Email Format Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if3 Email Format Validation": {
+      "main": [
+        [
+          {
+            "node": "if4 Message Quality Validation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if4 Message Quality Validation": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook4 Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "460c26e4-2c58-4768-a78c-280de36f21e2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e34a8853e7aac1ab36ff1be61a8db90cd30b67ab0ce6da9236087acfe36d1d7f"
+  },
+  "nodeGroups": [],
+  "id": "rJ3WbzqIUO2dYNs4",
+  "tags": []
+}

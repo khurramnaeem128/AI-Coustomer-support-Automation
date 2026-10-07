@@ -1,0 +1,87 @@
+<script>
+    const form = document.getElementById("customerForm");
+    const result = document.getElementById("result");
+    const submitButton = document.getElementById("submitButton");
+
+    form.addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const message = document.getElementById("message").value.trim();
+
+        // Frontend validation
+        if (!name || !email || !message) {
+            showResult(
+                "Please complete all required fields.",
+                "error"
+            );
+            return;
+        }
+
+        // Loading state
+        submitButton.disabled = true;
+        submitButton.textContent = "Sending...";
+
+        try {
+
+            const response = await fetch(
+                "http://127.0.0.1:8000/customer-inquiry",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        message: message
+                    })
+                }
+            );
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+
+                showResult(
+                    data.response || data.message || "Your inquiry was submitted successfully.",
+                    "success"
+                );
+
+                form.reset();
+
+            } else {
+
+                showResult(
+                    data.message || "Something went wrong. Please try again.",
+                    "error"
+                );
+            }
+
+        } catch (error) {
+
+            showResult(
+                "Unable to connect to the support system. Please try again.",
+                "error"
+            );
+
+        } finally {
+
+            submitButton.disabled = false;
+            submitButton.textContent = "Submit Inquiry";
+        }
+
+    });
+
+
+    function showResult(message, type) {
+
+        result.textContent = message;
+
+        result.className = type;
+
+        result.style.display = "block";
+    }
+</script>
